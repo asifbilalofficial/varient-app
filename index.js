@@ -40,8 +40,8 @@ app.post("/create-variant", async (req, res) => {
     price: String(price),
     sku: `SKU-${Date.now()}`,
     inventory_management: "shopify",
-    weight: weight,        // ✅ NEW
-    weight_unit: "g"       // ✅ Shopify requires unit
+    weight: req.body.weight,   // ✅ add this
+    weight_unit: "g"           // ✅ required by Shopify
   },
 }),
       }
@@ -99,4 +99,5 @@ app.post("/create-variant", async (req, res) => {
 // Start server
 const PORT = 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
 
