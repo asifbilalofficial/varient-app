@@ -3,6 +3,7 @@ import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
@@ -34,22 +35,21 @@ app.post("/create-variant", async (req, res) => {
           "Content-Type": "application/json",
           "X-Shopify-Access-Token": ACCESS_TOKEN,
         },
-       body: JSON.stringify({
-  variant: {
-    option1: uniqueOptionName,
-    price: String(price),
-    sku: `SKU-${Date.now()}`,
-    inventory_management: "shopify",
-    weight: weight,        // ✅ NEW
-    weight_unit: "g"       // ✅ Shopify requires unit
-    weight: req.body.weight,   // ✅ add this
-    weight_unit: "g"           // ✅ required by Shopify
-  },
-}),
+        body: JSON.stringify({
+          variant: {
+            option1: uniqueOptionName,
+            price: String(price),
+            sku: `SKU-${Date.now()}`,
+            inventory_management: "shopify",
+            weight: req.body.weight, // ✅ add this
+            weight_unit: "g" // ✅ required by Shopify
+          },
+        }),
       }
     );
 
     const data = await response.json();
+
     if (!response.ok) {
       return res.status(response.status).json({ error: data });
     }
@@ -59,8 +59,11 @@ app.post("/create-variant", async (req, res) => {
     // 3️⃣ Get store location_id (needed for inventory)
     const locationRes = await fetch(
       `https://${SHOP}/admin/api/2025-01/locations.json`,
-      { headers: { "X-Shopify-Access-Token": ACCESS_TOKEN } }
+      {
+        headers: { "X-Shopify-Access-Token": ACCESS_TOKEN },
+      }
     );
+
     const locationData = await locationRes.json();
     const locationId = locationData.locations[0].id; // pick first location
 
@@ -82,15 +85,13 @@ app.post("/create-variant", async (req, res) => {
     );
 
     const stockData = await stockRes.json();
+
     if (!stockRes.ok) {
       return res.status(stockRes.status).json({ error: stockData });
     }
 
     // ✅ Return both variant + stock confirmation
-    res.status(201).json({
-      variant,
-      stock: stockData,
-    });
+    res.status(201).json({ variant, stock: stockData });
 
   } catch (err) {
     console.error(err);
