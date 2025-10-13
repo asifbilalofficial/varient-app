@@ -34,14 +34,16 @@ app.post("/create-variant", async (req, res) => {
           "Content-Type": "application/json",
           "X-Shopify-Access-Token": ACCESS_TOKEN,
         },
-        body: JSON.stringify({
-          variant: {
-            option1: uniqueOptionName,
-            price: String(price),
-            sku: `SKU-${Date.now()}`,
-            inventory_management: "shopify",
-          },
-        }),
+       body: JSON.stringify({
+  variant: {
+    option1: uniqueOptionName,
+    price: String(price),
+    sku: `SKU-${Date.now()}`,
+    inventory_management: "shopify",
+    weight: weight,        // ✅ NEW
+    weight_unit: "g"       // ✅ Shopify requires unit
+  },
+}),
       }
     );
 
@@ -97,3 +99,4 @@ app.post("/create-variant", async (req, res) => {
 // Start server
 const PORT = 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
