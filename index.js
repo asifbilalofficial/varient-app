@@ -14,9 +14,9 @@ const ACCESS_TOKEN = "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"; // Admin API toke
 // Health check
 app.get("/", (req, res) => res.send("Server is alive"));
 
-// POST endpoint to create a variant and set stock = 10
+// POST endpoint to create a variant, set stock = 10, and add shipping package
 app.post("/create-variant", async (req, res) => {
-  let { product_id, option_name, price } = req.body;
+  let { product_id, option_name, price, weight, width, height, length, quantity } = req.body;
 
   if (!product_id || !option_name || !price) {
     return res.status(400).json({ error: "product_id, option_name, and price are required" });
@@ -41,8 +41,8 @@ app.post("/create-variant", async (req, res) => {
             price: String(price),
             sku: `SKU-${Date.now()}`,
             inventory_management: "shopify",
-            weight: req.body.weight, // ✅ add this
-            weight_unit: "g" // ✅ required by Shopify
+            weight: weight,
+            weight_unit: "g", // ✅ required by Shopify
           },
         }),
       }
@@ -88,6 +88,47 @@ app.post("/create-variant", async (req, res) => {
 
     if (!stockRes.ok) {
       return res.status(stockRes.status).json({ error: stockData });
+    }
+
+    // 5️⃣ Packaging Logic (NEW)
+    if (width && height && length && quantity) {
+      const packedWidth = parseFloat(width) + 2;
+      const packedHeight = parseFloat(height) + 2;
+      const packedLength = parseFloat(length) + 4;
+      const boxesNeeded = Math.ceil(quantity / 4);
+
+      const packageName = `Box for ${uniqueOptionName} (${boxesNeeded} box${boxesNeeded > 1 ? "es" : ""})`;
+
+      // 6️⃣ Create Shipping Package in Shopify
+      const packageRes = await fetch(
+        `https://${SHOP}/admin/api/2025-01/shipping_packages.json`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Shopify-Access-Token": ACCESS_TOKEN,
+          },
+          body: JSON.stringify({
+            shipping_package: {
+              name: packageName,
+              length: packedLength,
+              width: packedWidth,
+              height: packedHeight,
+              weight: weight,
+              dimension_unit: "in",
+              weight_unit: "g",
+            },
+          }),
+        }
+      );
+
+      const packageData = await packageRes.json();
+
+      if (!packageRes.ok) {
+        console.error("Error creating package:", packageData);
+      } else {
+        console.log("✅ Shipping package created:", packageData.shipping_package);
+      }
     }
 
     // ✅ Return both variant + stock confirmation
