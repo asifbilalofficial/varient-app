@@ -6,142 +6,150 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔑 Shopify credentials
-const SHOP = "6bc1e6-f0.myshopify.com"; // your shop domain
-const ACCESS_TOKEN = "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"; // Admin API token
+// Shopify credentials
+const SHOP = "6bc1e6-f0.myshopify.com";
+const ACCESS_TOKEN = "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"; // ⚠️ Replace safely
 
-// Health check
-app.get("/", (req, res) => res.send("✅ Server is alive"));
+// Utility: GraphQL call
+async function shopifyGraphQL(query) {
+  const res = await fetch(`https://${SHOP}/admin/api/2024-10/graphql.json`, {
+    method: "POST",
+    headers: {
+      "X-Shopify-Access-Token": ACCESS_TOKEN,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query }),
+  });
+  const data = await res.json();
+  if (data.errors) console.error("GraphQL Errors:", data.errors);
+  return data;
+}
 
-// POST endpoint to create a variant, inventory & package metafield
-app.post("/create-variant", async (req, res) => {
-  let { product_id, option_name, price, weight, shipping_package } = req.body;
+// Simple weight formula (customize this)
+function calculateWeight(variant) {
+  const baseWeight = 100; // grams
+  const area = (variant.length || 10) * (variant.width || 10);
+  const thickness = variant.height || 1;
+  return Math.round(baseWeight + area * thickness * 0.2);
+}
 
-  if (!product_id || !option_name || !price) {
-    return res
-      .status(400)
-      .json({ error: "product_id, option_name, and price are required" });
-  }
+// Create package in Shopify
+async function createPackageForVariant(variant, weight) {
+  const name = `Package - ${variant.title || variant.id}`;
+  const length = 10;
+  const width = 10;
+  const height = 5;
+  const unit = "CENTIMETERS";
+  const weightUnit = "GRAMS";
 
-  try {
-    // 1️⃣ Create unique option name
-    const uniqueOptionName = `${option_name}-${Date.now()}`;
-
-    // 2️⃣ Create variant
-    const variantRes = await fetch(
-      `https://${SHOP}/admin/api/2025-01/products/${product_id}/variants.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": ACCESS_TOKEN,
-        },
-        body: JSON.stringify({
-          variant: {
-            option1: uniqueOptionName,
-            price: String(price),
-            sku: `SKU-${Date.now()}`,
-            inventory_management: "shopify",
-            weight: weight || 0,
-            weight_unit: "g",
-          },
-        }),
-      }
-    );
-
-    const variantData = await variantRes.json();
-    if (!variantRes.ok) {
-      console.error("❌ Error creating variant:", variantData);
-      return res.status(variantRes.status).json({ error: variantData });
-    }
-
-    const variant = variantData.variant;
-    console.log(`✅ Variant created: ${variant.id}`);
-
-    // 3️⃣ Get location ID
-    const locRes = await fetch(`https://${SHOP}/admin/api/2025-01/locations.json`, {
-      headers: { "X-Shopify-Access-Token": ACCESS_TOKEN },
-    });
-
-    const locData = await locRes.json();
-    if (!locRes.ok || !locData.locations?.length) {
-      return res.status(500).json({ error: "Unable to fetch location ID" });
-    }
-
-    const locationId = locData.locations[0].id;
-
-    // 4️⃣ Set inventory to 10
-    const stockRes = await fetch(
-      `https://${SHOP}/admin/api/2025-01/inventory_levels/set.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": ACCESS_TOKEN,
-        },
-        body: JSON.stringify({
-          location_id: locationId,
-          inventory_item_id: variant.inventory_item_id,
-          available: 10,
-        }),
-      }
-    );
-
-    const stockData = await stockRes.json();
-    if (!stockRes.ok) {
-      console.error("❌ Error setting inventory:", stockData);
-      return res.status(stockRes.status).json({ error: stockData });
-    }
-
-    console.log(`📦 Inventory set for variant: ${variant.id}`);
-
-    // 5️⃣ Save shipping package dimensions as metafield for the variant
-    if (shipping_package) {
-      try {
-        const metafieldRes = await fetch(
-          `https://${SHOP}/admin/api/2025-01/variants/${variant.id}/metafields.json`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Shopify-Access-Token": ACCESS_TOKEN,
-            },
-            body: JSON.stringify({
-              metafield: {
-                namespace: "shipping",
-                key: "package_info",
-                type: "json",
-                value: JSON.stringify(shipping_package),
-              },
-            }),
-          }
-        );
-
-        const metaData = await metafieldRes.json();
-        if (!metafieldRes.ok) {
-          console.error("❌ Error saving metafield:", metaData);
-        } else {
-          console.log("📦 Saved shipping metafield:", metaData);
+  const mutation = `
+    mutation {
+      packageCreate(input: {
+        name: "${name}"
+        dimensionUnit: ${unit}
+        weightUnit: ${weightUnit}
+        length: ${length}
+        width: ${width}
+        height: ${height}
+        weight: ${weight}
+      }) {
+        package {
+          id
+          name
+          length
+          width
+          height
+          weight
         }
-      } catch (metaErr) {
-        console.error("Metafield creation error:", metaErr);
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const result = await shopifyGraphQL(mutation);
+  const pkg = result.data?.packageCreate?.package;
+  if (pkg) console.log(`✅ Created package ${pkg.name}`);
+  else console.error("❌ Package creation failed:", result.data?.packageCreate?.userErrors);
+  return pkg;
+}
+
+// Main endpoint
+app.post("/update-variants", async (req, res) => {
+  try {
+    const { productId } = req.body;
+    if (!productId) return res.status(400).json({ error: "Missing productId" });
+
+    // Fetch product & variants
+    const resp = await fetch(
+      `https://${SHOP}/admin/api/2024-10/products/${productId}.json`,
+      {
+        headers: {
+          "X-Shopify-Access-Token": ACCESS_TOKEN,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    const productData = await resp.json();
+    const variants = productData.product?.variants || [];
+
+    for (const variant of variants) {
+      const weight = calculateWeight(variant);
+
+      // Step 1: Update variant weight
+      await fetch(
+        `https://${SHOP}/admin/api/2024-10/variants/${variant.id}.json`,
+        {
+          method: "PUT",
+          headers: {
+            "X-Shopify-Access-Token": ACCESS_TOKEN,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            variant: {
+              id: variant.id,
+              weight,
+              weight_unit: "g",
+            },
+          }),
+        }
+      );
+
+      // Step 2: Create a custom package
+      const pkg = await createPackageForVariant(variant, weight);
+
+      // Step 3: Store package info in metafield (to track later)
+      if (pkg) {
+        await fetch(`https://${SHOP}/admin/api/2024-10/metafields.json`, {
+          method: "POST",
+          headers: {
+            "X-Shopify-Access-Token": ACCESS_TOKEN,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            metafield: {
+              namespace: "variant_package",
+              key: "package_info",
+              value: JSON.stringify(pkg),
+              type: "json",
+              owner_resource: "variant",
+              owner_id: variant.id,
+            },
+          }),
+        });
       }
     }
 
-    // ✅ Return all created info
-    res.status(201).json({
-      success: true,
-      variant,
-      message: "Variant created with shipping package metafield and inventory",
-    });
+    res.json({ success: true, message: "✅ Variants updated & packages created." });
   } catch (err) {
-    console.error("🔥 Fatal error:", err);
-    res.status(500).json({ error: err.message || String(err) });
+    console.error("❌ Error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Start server
-const PORT = 3000;
-app.listen(PORT, () =>
-  console.log(`🚀 Server running on http://localhost:${PORT}`)
-);
+// Health check
+app.get("/", (req, res) => res.send("🚀 Variant Package API is live"));
+
+app.listen(3000, () => console.log("✅ Server running on port 3000"));
