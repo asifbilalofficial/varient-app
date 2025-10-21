@@ -9,7 +9,7 @@ app.use(express.json());
 
 // 🔑 Shopify credentials
 const SHOP = "6bc1e6-f0.myshopify.com"; // your shop domain
-const ACCESS_TOKEN = "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"; // Admin API token
+const ACCESS_TOKEN = "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"; // Admin API token
 
 // Health check
 app.get("/", (req, res) => res.send("Server is alive"));
@@ -102,4 +102,5 @@ app.post("/create-variant", async (req, res) => {
 // Start server
 const PORT = 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
 
