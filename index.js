@@ -14,18 +14,18 @@ const ACCESS_TOKEN = "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"; // Admin API toke
 // Health check
 app.get("/", (req, res) => res.send("Server is alive"));
 
-// POST endpoint to create a variant and set stock = 10
+// POST endpoint to create a single variant for multiple sizes
 app.post("/create-variant", async (req, res) => {
   let { product_id, option_name, price, weight } = req.body;
 
-  if (!product_id || !option_name || !price) {
+  if (!product_id || !option_name || !price || !weight) {
     return res.status(400).json({
-      error: "product_id, option_name, and price are required",
+      error: "product_id, option_name, price, and weight are required",
     });
   }
 
   try {
-    // 1️⃣ Create unique option name
+    // 1️⃣ Create a unique variant option name
     const uniqueOptionName = `${option_name}-${Date.now()}`;
 
     // 2️⃣ Create variant
@@ -43,7 +43,7 @@ app.post("/create-variant", async (req, res) => {
             price: String(price),
             sku: `SKU-${Date.now()}`,
             inventory_management: "shopify",
-            weight: weight || 0, // optional, default 0
+            weight: weight || 0, // total weight of all sizes in grams
             weight_unit: "g",
           },
         }),
@@ -51,7 +51,6 @@ app.post("/create-variant", async (req, res) => {
     );
 
     const data = await response.json();
-
     if (!response.ok) {
       return res.status(response.status).json({ error: data });
     }
@@ -71,7 +70,7 @@ app.post("/create-variant", async (req, res) => {
     const locationData = await locationRes.json();
     const locationId = locationData.locations[0].id; // pick first location
 
-    // 4️⃣ Set inventory to 10
+    // 4️⃣ Set inventory to 10 (or you can customize)
     const stockRes = await fetch(
       `https://${SHOP}/admin/api/2025-01/inventory_levels/set.json`,
       {
@@ -89,12 +88,11 @@ app.post("/create-variant", async (req, res) => {
     );
 
     const stockData = await stockRes.json();
-
     if (!stockRes.ok) {
       return res.status(stockRes.status).json({ error: stockData });
     }
 
-    // ✅ Return both variant + stock confirmation
+    // ✅ Return variant + stock confirmation
     res.status(201).json({ variant, stock: stockData });
   } catch (err) {
     console.error(err);
