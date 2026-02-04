@@ -30,7 +30,7 @@ app.post("/create-variant", async (req, res) => {
 
     // 2️⃣ Create variant
     const response = await fetch(
-      `https://${SHOP}/admin/api/2025-01/products/${product_id}/variants.json`,
+      `https://${SHOP}/admin/api/2024-10/products/${product_id}/variants.json`,
       {
         method: "POST",
         headers: {
@@ -59,7 +59,7 @@ app.post("/create-variant", async (req, res) => {
 
     // 3️⃣ Get store location_id (needed for inventory)
     const locationRes = await fetch(
-      `https://${SHOP}/admin/api/2025-01/locations.json`,
+      `https://${SHOP}/admin/api/2024-10/locations.json`,
       {
         headers: {
           "X-Shopify-Access-Token": ACCESS_TOKEN,
@@ -72,7 +72,7 @@ app.post("/create-variant", async (req, res) => {
 
     // 4️⃣ Set inventory to 10 (or you can customize)
     const stockRes = await fetch(
-      `https://${SHOP}/admin/api/2025-01/inventory_levels/set.json`,
+      `https://${SHOP}/admin/api/2024-10/inventory_levels/set.json`,
       {
         method: "POST",
         headers: {
@@ -103,4 +103,5 @@ app.post("/create-variant", async (req, res) => {
 // Start server
 const PORT = 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
 
