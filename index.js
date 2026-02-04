@@ -9,7 +9,7 @@ app.use(express.json());
 
 // 🔑 Shopify credentials
 const SHOP = "6bc1e6-f0.myshopify.com";
-const ACCESS_TOKEN = "shpat_REPLACE_THIS_TOKEN"; // rotate token ASAP
+const ACCESS_TOKEN = "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"; // rotate token ASAP
 const API_VERSION = "2024-10";
 
 // Health check
@@ -134,3 +134,4 @@ const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
+
