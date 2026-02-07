@@ -4,20 +4,19 @@ import cors from "cors";
 
 const app = express();
 
-// ✅ Allow all origins and methods for frontend requests
-app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"] }));
+app.use(cors());
 app.use(express.json());
 
 // 🔑 Shopify credentials
 const SHOP = "6bc1e6-f0.myshopify.com"; // your shop domain
-const ACCESS_TOKEN = "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"; // Admin API token
+const ACCESS_TOKEN = "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"; // Admin API token
 
 // Health check
 app.get("/", (req, res) => res.send("Server is alive"));
 
-// POST endpoint to create a variant
+// POST endpoint to create a single variant for multiple sizes
 app.post("/create-variant", async (req, res) => {
-  const { product_id, option_name, price, weight } = req.body;
+  let { product_id, option_name, price, weight } = req.body;
 
   if (!product_id || !option_name || !price || !weight) {
     return res.status(400).json({
@@ -26,12 +25,12 @@ app.post("/create-variant", async (req, res) => {
   }
 
   try {
-    // Unique option name to avoid conflicts
-    const uniqueOption = `${option_name}-${Date.now()}`;
+    // 1️⃣ Create a unique variant option name
+    const uniqueOptionName = `${option_name}-${Date.now()}`;
 
-    // 🔹 1️⃣ Create variant (older API style: 2023-07)
-    const variantResponse = await fetch(
-      `https://${SHOP}/admin/api/2023-07/products/${product_id}/variants.json`,
+    // 2️⃣ Create variant
+    const response = await fetch(
+      `https://${SHOP}/admin/api/2025-01/products/${product_id}/variants.json`,
       {
         method: "POST",
         headers: {
@@ -40,29 +39,27 @@ app.post("/create-variant", async (req, res) => {
         },
         body: JSON.stringify({
           variant: {
-            option1: uniqueOption,
+            option1: uniqueOptionName,
             price: String(price),
             sku: `SKU-${Date.now()}`,
             inventory_management: "shopify",
-            weight: weight,
+            weight: weight || 0, // total weight of all sizes in grams
             weight_unit: "g",
           },
         }),
       }
     );
 
-    const variantData = await variantResponse.json();
-
-    if (!variantResponse.ok) {
-      console.error("Shopify variant error:", variantData);
-      return res.status(variantResponse.status).json({ error: variantData });
+    const data = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data });
     }
 
-    const variant = variantData.variant;
+    const variant = data.variant;
 
-    // 🔹 2️⃣ Get store location_id
+    // 3️⃣ Get store location_id (needed for inventory)
     const locationRes = await fetch(
-      `https://${SHOP}/admin/api/2023-07/locations.json`,
+      `https://${SHOP}/admin/api/2025-01/locations.json`,
       {
         headers: {
           "X-Shopify-Access-Token": ACCESS_TOKEN,
@@ -71,16 +68,11 @@ app.post("/create-variant", async (req, res) => {
     );
 
     const locationData = await locationRes.json();
-    if (!locationRes.ok) {
-      console.error("Shopify location error:", locationData);
-      return res.status(locationRes.status).json({ error: locationData });
-    }
+    const locationId = locationData.locations[0].id; // pick first location
 
-    const locationId = locationData.locations[0].id;
-
-    // 🔹 3️⃣ Set inventory
+    // 4️⃣ Set inventory to 10 (or you can customize)
     const stockRes = await fetch(
-      `https://${SHOP}/admin/api/2023-07/inventory_levels/set.json`,
+      `https://${SHOP}/admin/api/2025-01/inventory_levels/set.json`,
       {
         method: "POST",
         headers: {
@@ -97,18 +89,19 @@ app.post("/create-variant", async (req, res) => {
 
     const stockData = await stockRes.json();
     if (!stockRes.ok) {
-      console.error("Shopify stock error:", stockData);
       return res.status(stockRes.status).json({ error: stockData });
     }
 
-    // ✅ Success response
+    // ✅ Return variant + stock confirmation
     res.status(201).json({ variant, stock: stockData });
   } catch (err) {
-    console.error("Server error:", err);
+    console.error(err);
     res.status(500).json({ error: err.message || String(err) });
   }
 });
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
+
