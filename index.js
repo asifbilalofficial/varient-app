@@ -4,33 +4,33 @@ import cors from "cors";
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: "*",
+  methods: ["POST", "GET"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 app.use(express.json());
 
 // 🔑 Shopify credentials
-const SHOP = "6bc1e6-f0.myshopify.com"; // your shop domain
-const ACCESS_TOKEN = "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"; // Admin API token
+const SHOP = "6bc1e6-f0.myshopify.com";
+const ACCESS_TOKEN = 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; // ⚠️ move token to ENV
 
-// Health check
 app.get("/", (req, res) => res.send("Server is alive"));
 
-// POST endpoint to create a single variant for multiple sizes
-app.post("/create-variant", async (req, res) => {
-  let { product_id, option_name, price, weight } = req.body;
+app.post("/create-draft-order", async (req, res) => {
+  const { variant_id, quantity, custom_price, custom_option, weight } = req.body;
 
-  if (!product_id || !option_name || !price || !weight) {
+  if (!variant_id || !quantity || !custom_price) {
     return res.status(400).json({
-      error: "product_id, option_name, price, and weight are required",
+      error: "variant_id, quantity and custom_price are required",
     });
   }
 
   try {
-    // 1️⃣ Create a unique variant option name
-    const uniqueOptionName = `${option_name}-${Date.now()}`;
 
-    // 2️⃣ Create variant
     const response = await fetch(
-      `https://${SHOP}/admin/api/2025-01/products/${product_id}/variants.json`,
+      `https://${SHOP}/admin/api/2025-01/draft_orders.json`,
       {
         method: "POST",
         headers: {
@@ -38,70 +38,46 @@ app.post("/create-variant", async (req, res) => {
           "X-Shopify-Access-Token": ACCESS_TOKEN,
         },
         body: JSON.stringify({
-          variant: {
-            option1: uniqueOptionName,
-            price: String(price),
-            sku: `SKU-${Date.now()}`,
-            inventory_management: "shopify",
-            weight: weight || 0, // total weight of all sizes in grams
-            weight_unit: "g",
-          },
+          draft_order: {
+            line_items: [
+              {
+                variant_id: variant_id,
+                quantity: quantity,
+                price: String(custom_price),
+                properties: [
+                  {
+                    name: "Selected Option",
+                    value: custom_option || "Custom"
+                  },
+                  {
+                    name: "Total Weight (g)",
+                    value: weight || 0
+                  }
+                ]
+              }
+            ],
+            use_customer_default_address: true
+          }
         }),
       }
     );
 
     const data = await response.json();
+
     if (!response.ok) {
+      console.log(data);
       return res.status(response.status).json({ error: data });
     }
 
-    const variant = data.variant;
+    res.status(201).json({
+      checkout_url: data.draft_order.invoice_url
+    });
 
-    // 3️⃣ Get store location_id (needed for inventory)
-    const locationRes = await fetch(
-      `https://${SHOP}/admin/api/2025-01/locations.json`,
-      {
-        headers: {
-          "X-Shopify-Access-Token": ACCESS_TOKEN,
-        },
-      }
-    );
-
-    const locationData = await locationRes.json();
-    const locationId = locationData.locations[0].id; // pick first location
-
-    // 4️⃣ Set inventory to 10 (or you can customize)
-    const stockRes = await fetch(
-      `https://${SHOP}/admin/api/2025-01/inventory_levels/set.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": ACCESS_TOKEN,
-        },
-        body: JSON.stringify({
-          location_id: locationId,
-          inventory_item_id: variant.inventory_item_id,
-          available: 10,
-        }),
-      }
-    );
-
-    const stockData = await stockRes.json();
-    if (!stockRes.ok) {
-      return res.status(stockRes.status).json({ error: stockData });
-    }
-
-    // ✅ Return variant + stock confirmation
-    res.status(201).json({ variant, stock: stockData });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || String(err) });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Start server
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
-
-
