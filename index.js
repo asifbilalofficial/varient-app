@@ -14,8 +14,9 @@ app.use(express.json());
 
 // 🔑 Shopify credentials
 const SHOP = "6bc1e6-f0.myshopify.com";
-const ACCESS_TOKEN = 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; // ⚠️ move token to ENV
+const ACCESS_TOKEN = "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"; // 🔥 add fresh token
 
+// Health check
 app.get("/", (req, res) => res.send("Server is alive"));
 
 app.post("/create-draft-order", async (req, res) => {
@@ -28,7 +29,6 @@ app.post("/create-draft-order", async (req, res) => {
   }
 
   try {
-
     const response = await fetch(
       `https://${SHOP}/admin/api/2025-01/draft_orders.json`,
       {
@@ -65,7 +65,7 @@ app.post("/create-draft-order", async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.log(data);
+      console.log("Shopify Error:", data);
       return res.status(response.status).json({ error: data });
     }
 
@@ -74,7 +74,7 @@ app.post("/create-draft-order", async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("Server Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
