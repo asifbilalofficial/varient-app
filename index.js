@@ -16,7 +16,12 @@ app.get("/", (req, res) => res.send("Server is alive"));
 
 // POST endpoint to create a single variant for multiple sizes
 app.post("/create-variant", async (req, res) => {
-  let { product_id, option_name, price, weight } = req.body;
+  // let { product_id, option_name, price, weight } = req.body;
+  let product_id=10211240378642;
+  let option_name=UniqueOption;
+  let price=1;
+  let weight=2;
+  
 
   if (!product_id || !option_name || !price || !weight) {
     return res.status(400).json({
@@ -103,3 +108,4 @@ app.post("/create-variant", async (req, res) => {
 // Start server
 const PORT = 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
