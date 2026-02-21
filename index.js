@@ -1,9 +1,12 @@
+// index.js
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
+import "dotenv/config"; // loads variables from .env
 
 const app = express();
 
+// Middleware
 app.use(
   cors({
     origin: "*",
@@ -11,12 +14,11 @@ app.use(
     allowedHeaders: ["Content-Type"],
   })
 );
-
 app.use(express.json());
 
-// 🔑 Shopify credentials
-const SHOP = "6bc1e6-f0.myshopify.com";
-const ACCESS_TOKEN = "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"; // replace with your fresh token
+// 🔑 Shopify credentials from .env
+const SHOP = process.env.SHOPIFY_SHOP;
+const ACCESS_TOKEN = process.env.SHOPIFY_TOKEN;
 
 // ✅ Health check
 app.get("/", (req, res) => {
@@ -47,7 +49,7 @@ app.get("/test", async (req, res) => {
   }
 });
 
-// 🛒 Create Draft Order (optional, keep your existing route)
+// 🛒 Create Draft Order
 app.post("/create-draft-order", async (req, res) => {
   const { variant_id, quantity, custom_price, custom_option, weight } = req.body;
 
@@ -101,6 +103,7 @@ app.post("/create-draft-order", async (req, res) => {
   }
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
