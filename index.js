@@ -36,7 +36,7 @@ app.post("/create-draft-order", async (req, res) => {
 
   try {
     const response = await fetch(
-      `https://${SHOP}/admin/api/2025-01/draft_orders.json`,
+      `https://${SHOP}/admin/api/2024-07/draft_orders.json`,
       {
         method: "POST",
         headers: {
@@ -89,3 +89,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
