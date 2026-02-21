@@ -3,6 +3,8 @@ import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
 import "dotenv/config"; // loads variables from .env
+console.log("SHOP:", process.env.SHOPIFY_SHOP);
+console.log("TOKEN:", process.env.SHOPIFY_TOKEN ? "loaded" : "not loaded");
 
 const app = express();
 
