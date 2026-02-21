@@ -16,17 +16,40 @@ app.use(express.json());
 
 // 🔑 Shopify credentials
 const SHOP = "6bc1e6-f0.myshopify.com";
-const ACCESS_TOKEN = "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"; // 🔥 add fresh token
+const ACCESS_TOKEN = "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"; // replace with your fresh token
 
 // ✅ Health check
 app.get("/", (req, res) => {
   res.send("Server is alive");
 });
 
-// 🛒 Create Draft Order
+// 🧪 Test Shopify API access
+app.get("/test", async (req, res) => {
+  try {
+    const response = await fetch(
+      `https://${SHOP}/admin/api/2024-07/shop.json`,
+      {
+        headers: {
+          "X-Shopify-Access-Token": ACCESS_TOKEN,
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    res.json({
+      status: response.status,
+      success: response.ok,
+      data: data,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🛒 Create Draft Order (optional, keep your existing route)
 app.post("/create-draft-order", async (req, res) => {
-  const { variant_id, quantity, custom_price, custom_option, weight } =
-    req.body;
+  const { variant_id, quantity, custom_price, custom_option, weight } = req.body;
 
   if (!variant_id || !quantity || !custom_price) {
     return res.status(400).json({
@@ -51,14 +74,8 @@ app.post("/create-draft-order", async (req, res) => {
                 quantity: quantity,
                 price: String(custom_price),
                 properties: [
-                  {
-                    name: "Selected Option",
-                    value: custom_option || "Custom",
-                  },
-                  {
-                    name: "Total Weight (g)",
-                    value: weight || 0,
-                  },
+                  { name: "Selected Option", value: custom_option || "Custom" },
+                  { name: "Total Weight (g)", value: weight || 0 },
                 ],
               },
             ],
@@ -89,4 +106,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
-
