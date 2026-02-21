@@ -31,7 +31,7 @@ app.post("/create-variant", async (req, res) => {
 
     // 2️⃣ Create variant
     const response = await fetch(
-      `https://${SHOP}/admin/api/2025-01/products/${product_id}/variants.json`,
+      `https://${SHOP}/admin/api/2024-07/products/${product_id}/variants.json`,
       {
         method: "POST",
         headers: {
@@ -104,5 +104,6 @@ app.post("/create-variant", async (req, res) => {
 // Start server
 const PORT = 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
 
 
